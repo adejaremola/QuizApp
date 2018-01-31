@@ -32,4 +32,14 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         'updated_at',
         'password',
     ];
+
+    public function profile()
+    {
+        return $this->hasOne('App\Profile');
+    }
+
+    public function socialProvider()
+    {
+        return $this->hasMany('App\SocialProvider');
+    }
 }
