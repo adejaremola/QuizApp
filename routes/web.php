@@ -10,7 +10,12 @@
 | and give it the Closure to call when that URI is requested.
 |
 */
+// Register route
+$router->post('/user/register', 'UserController@register');
 
-$router->get('/', function () use ($router) {
-    return $router->app->version();
-});
+// Login/Register route
+$router->post('/user/login', 'UserController@login');
+
+//Upload Picture
+$router->post('/user/{id}/profile', 'UserController@updateProfile');
+
