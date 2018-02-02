@@ -11,11 +11,16 @@
 |
 */
 // Register route
+
+$router->get('/', 'UserController@index');
 $router->post('/user/register', 'UserController@register');
 
 // Login/Register route
 $router->post('/user/login', 'UserController@login');
 
 //Upload Picture
-$router->post('/user/{id}/profile', 'UserController@updateProfile');
+$router->post('/user/{id}/profile', 'UserController@update');
+
+$router->get('/auth/{provider}', 'UserController@redirectToProvider');
+$router->get('/auth/{provider}/callback', 'UserController@handleProviderCallback');
 

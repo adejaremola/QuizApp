@@ -6,20 +6,13 @@ use App\Profile;
 use App\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Socialite;
 
 class UserController extends Controller{
 
 	public function __construct(){
 
-		// $this->middleware('oauth', ['except' => ['index', 'show']]);
-		// $this->middleware('authorize:' . __CLASS__, ['except' => ['index', 'show']]);
 	}
-
-	// public function index(){
-
-	// 	$users = User::all();
-	// 	return $this->success($users, 200);
-	// }
 
 	public function register(Request $request){
 
@@ -34,15 +27,14 @@ class UserController extends Controller{
 					'user_id' => $user->id,
 					]);
 		return response()->json(['data' => $user], 201);
-		// return $this->success("The user with with id {$user->id} has been created", 201);
 	}
 
 	public function login(Request $request) {
 
 		$user = User::where('email', $request->get('email'))->get();
+		
 		$password = User::where('email', $request->get('email'))->get(['password']);
-		// $password = User::where()
-		// return response()->json($user[0]['password'], 201);
+		
 		if ($user->isEmpty()) {
 			# code...
 			return response()->json(['data' => "This user doesn't exist"], 302);
@@ -58,20 +50,70 @@ class UserController extends Controller{
 
 	}
 
-	public function updateProfile(Request $request, $id){
+	// Social Auth
+	public function redirectToProvider($provider)
+    {
+        return Socialite::driver($provider)->stateless()->redirect();
+    }
 
-		$user = User::find($id);
+    // CallBack function
+    public function handleProviderCallback($provider)
+    {
+        //Exeption handling to avoid display of error, if the auth provider is unaccessible
+        try
+        {
+            //User credentials from the provider is passed into the $socialUser variable
+            $socialUser = Socialite::driver($provider)->stateless()->user();
+        }
+        catch(\Exception $e)
+        {
+            //Redirects if the auth provider isnt accessible
+            return redirect('/');
+        }
 
-		if(!$user){
-			return response()->json(['data' => "This user doesn't exist."], 404);
-		}
+        /**
+            *Check in the database if the user that owns the credentials from the provider has been registered in the database already
+            *That is done by checking for the userId from the provider, in the provider_id column
+        */
 
+        $socialProvider = SocialProvider::where('provider_id', $socialUser->getId())->first();
 
-		$profile = Profile::where('user_id', $user->id)->update([
-						'pic_url' => $request->get('pic_url')
-					]);
+        if(!$socialProvider)
+        {
 
-		return response()->json(['data' => 'Profile Updated Successfully'], 200);
-	}
+            $user = User::firstOrCreate(
+                /**
+                    *firstOrCreate() method takes two parameters, 
+                    *First is an array of credentials to check if they are in the database already
+                    *If any is found, the user is object is returned, therefore a new entry isnt created
+                    *Second is an array of new entries into the database, i.e if the first array isnt there in the database
+                */
+                ['email' => $socialUser->getEmail()],
+                [
+                	'name' => $socialUser->getName(),
+	            	'email' => $socialUser->getEmail()
+            	]
+            );
+             
+            /**
+                *Also save the userId from the provider, and the provider in the database
+                *This is important so that multiple acounts aren't created for one user
+            */
+            $user->socialProvider()->create(
+                [
+                    'provider_id' => $socialUser->getId(),
+                    'provider' => $provider
+                ]
+            );
+        }
+        else {
+            /**
+                If credentials from the provider is found in the database, means the user has already registered, so the registered user is retrieved
+            */
+            $user = $socialProvider->user;
+        }
+        // Once retrieved, or registered, the user is logged in
+        return response()->json(['data' => $user], 201);
+    }
 
 }
